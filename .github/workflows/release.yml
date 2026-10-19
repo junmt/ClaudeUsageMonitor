@@ -1,0 +1,60 @@
+name: Release
+
+# v で始まるタグ（例: v0.1.0）を push すると、テスト → ビルド → GitHub Release の作成までを自動で行う
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Resolve version
+        id: version
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $version = $tag.TrimStart('v')
+          if ($version -notmatch '^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$') {
+            throw "タグ '$tag' は vX.Y.Z（例: v0.1.0）の形式にしてください。"
+          }
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "prerelease=$($version.Contains('-').ToString().ToLower())" >> $env:GITHUB_OUTPUT
+
+      - name: Test
+        run: dotnet test ClaudeUsageMonitor.sln -c Release
+
+      - name: Publish
+        shell: pwsh
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+          New-Item -ItemType Directory -Force dist | Out-Null
+          foreach ($rid in 'win-x64', 'win-arm64') {
+            dotnet publish src/ClaudeUsageMonitor/ClaudeUsageMonitor.csproj `
+              -c Release -r $rid -p:Version=$version -p:DebugType=none -o "publish/$rid"
+            if ($LASTEXITCODE -ne 0) { throw "publish に失敗しました ($rid)" }
+            Compress-Archive -Path "publish/$rid/*" -DestinationPath "dist/ClaudeUsageMonitor-$version-$rid.zip"
+          }
+          Get-ChildItem dist | ForEach-Object {
+            "$((Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower())  $($_.Name)"
+          } | Set-Content dist/SHA256SUMS.txt -Encoding ascii
+
+      - name: Create GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $files = (Get-ChildItem dist).FullName
+          $ghArgs = @('release', 'create', '${{ github.ref_name }}') + $files + @('--title', '${{ github.ref_name }}', '--generate-notes')
+          if ('${{ steps.version.outputs.prerelease }}' -eq 'true') { $ghArgs += '--prerelease' }
+          gh @ghArgs
+          if ($LASTEXITCODE -ne 0) { throw "リリースの作成に失敗しました" }

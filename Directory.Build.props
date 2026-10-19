@@ -1,0 +1,9 @@
+<Project>
+  <PropertyGroup>
+    <!--
+      Google ドライブ上ではビルド中に生成したファイルがすぐにコンパイラから見えないことがあるため、
+      bin / obj をローカルディスクに置く（同期対象からも外れる）。
+    -->
+    <ArtifactsPath>$(LOCALAPPDATA)\ClaudeUsageMonitor.build</ArtifactsPath>
+  </PropertyGroup>
+</Project>

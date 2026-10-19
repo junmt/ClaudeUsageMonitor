@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- DPI 設定は WPF のためマニフェストで行う（WinForms はトレイアイコンにのみ使用） -->
+    <NoWarn>$(NoWarn);WFO0003</NoWarn>
+    <AssemblyTitle>Claude Usage Monitor</AssemblyTitle>
+    <Version>0.1.0</Version>
+  </PropertyGroup>
+
+  <!-- 単一ファイル発行（dotnet publish -c Release -r win-x64） -->
+  <PropertyGroup Condition="'$(RuntimeIdentifier)' != ''">
+    <PublishSingleFile>true</PublishSingleFile>
+    <SelfContained>true</SelfContained>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ClaudeUsageMonitor.Core\ClaudeUsageMonitor.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- WPF と WinForms の型名衝突を避けるため、WinForms の暗黙 using を外す -->
+    <Using Remove="System.Windows.Forms" />
+    <Using Remove="System.Drawing" />
+  </ItemGroup>
+
+</Project>
