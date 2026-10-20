@@ -37,6 +37,18 @@
             </Style.Triggers>
         </Style>
 
+        <!-- 利用枠・メモリの1行（名称・%・バー・補足） -->
+        <DataTemplate x:Key="LimitItemTemplate" DataType="{x:Type vm:LimitItemViewModel}">
+            <StackPanel Margin="0,0,0,10">
+                <Grid>
+                    <TextBlock Text="{Binding Label}" Style="{StaticResource PrimaryText}" />
+                    <TextBlock Text="{Binding PercentText}" Style="{StaticResource LimitPercent}" HorizontalAlignment="Right" />
+                </Grid>
+                <ProgressBar Style="{StaticResource LimitBar}" Value="{Binding Percent, Mode=OneWay}" Margin="0,6,0,4" />
+                <TextBlock Text="{Binding ResetText}" ToolTip="{Binding ResetTooltip}" Style="{StaticResource SecondaryText}" />
+            </StackPanel>
+        </DataTemplate>
+
         <DataTemplate x:Key="BarItemTemplate" DataType="{x:Type vm:BarItemViewModel}">
             <Grid Margin="0,2,0,3" ToolTip="{Binding Tooltip}">
                 <Grid.ColumnDefinitions>
@@ -103,22 +115,15 @@
 
             <!-- USAGE -->
             <TextBlock Text="USAGE" Style="{StaticResource SectionHeader}" />
-            <ItemsControl ItemsSource="{Binding Limits}" Margin="0,0,4,0">
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate DataType="{x:Type vm:LimitItemViewModel}">
-                        <StackPanel Margin="0,0,0,10">
-                            <Grid>
-                                <TextBlock Text="{Binding Label}" Style="{StaticResource PrimaryText}" />
-                                <TextBlock Text="{Binding PercentText}" Style="{StaticResource LimitPercent}" HorizontalAlignment="Right" />
-                            </Grid>
-                            <ProgressBar Style="{StaticResource LimitBar}" Value="{Binding Percent, Mode=OneWay}" Margin="0,6,0,4" />
-                            <TextBlock Text="{Binding ResetText}" ToolTip="{Binding ResetTooltip}" Style="{StaticResource SecondaryText}" />
-                        </StackPanel>
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
+            <ItemsControl ItemsSource="{Binding Limits}" ItemTemplate="{StaticResource LimitItemTemplate}" Margin="0,0,4,0" />
             <TextBlock Visibility="{Binding HasRawText, Converter={StaticResource BoolToVisibility}}" Text="{Binding RawText}"
                        Style="{StaticResource SecondaryText}" TextWrapping="Wrap" Margin="0,0,4,8" />
+
+            <!-- SYSTEM（設定で有効にした場合のみ） -->
+            <StackPanel Visibility="{Binding HasSystemItems, Converter={StaticResource BoolToVisibility}}" Margin="0,0,4,0">
+                <TextBlock Text="SYSTEM" Style="{StaticResource SectionHeader}" Margin="0,0,0,6" />
+                <ItemsControl ItemsSource="{Binding SystemItems}" ItemTemplate="{StaticResource LimitItemTemplate}" />
+            </StackPanel>
 
             <!-- 詳細モード -->
             <StackPanel Visibility="{Binding IsDetail, Converter={StaticResource BoolToVisibility}}" Margin="0,0,4,0">

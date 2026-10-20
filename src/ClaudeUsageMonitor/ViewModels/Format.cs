@@ -12,6 +12,13 @@ public static class Format
         _ => value.ToString(CultureInfo.InvariantCulture),
     };
 
+    public static string Bytes(long value) => value switch
+    {
+        >= 1L << 30 => (value / (double)(1L << 30)).ToString("0.0", CultureInfo.InvariantCulture) + " GB",
+        >= 1L << 20 => (value / (double)(1L << 20)).ToString("0", CultureInfo.InvariantCulture) + " MB",
+        _ => (value / 1024d).ToString("0", CultureInfo.InvariantCulture) + " KB",
+    };
+
     public static string Percent(double value) =>
         value.ToString(value % 1 == 0 ? "0" : "0.#", CultureInfo.InvariantCulture) + "%";
 

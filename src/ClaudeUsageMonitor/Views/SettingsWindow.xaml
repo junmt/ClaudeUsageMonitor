@@ -2,6 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Claude Usage Monitor の設定"
+        Icon="pack://application:,,,/Assets/app.ico"
         Width="520" Height="640" MinWidth="460" MinHeight="420"
         WindowStartupLocation="CenterScreen" ResizeMode="CanResizeWithGrip"
         FontFamily="Segoe UI, Yu Gothic UI" FontSize="13">
@@ -130,6 +131,37 @@
 
                         <CheckBox x:Name="ShowEmailCheck" Grid.Row="4" Grid.ColumnSpan="2" Content="メールアドレスを表示する" />
                     </Grid>
+                </GroupBox>
+
+                <GroupBox Header="システム情報（オプション）">
+                    <StackPanel>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="70" />
+                                <ColumnDefinition Width="90" />
+                                <ColumnDefinition Width="90" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <TextBlock Text="PC" Style="{StaticResource Label}" />
+                            <CheckBox x:Name="ShowPcCpuCheck" Grid.Column="1" Content="CPU" />
+                            <CheckBox x:Name="ShowPcMemoryCheck" Grid.Column="2" Content="メモリ" />
+                            <CheckBox x:Name="ShowPcStorageCheck" Grid.Column="3" Content="ストレージ" />
+                            <TextBlock Grid.Row="1" Text="WSL2" Style="{StaticResource Label}" />
+                            <CheckBox x:Name="ShowWslCpuCheck" Grid.Row="1" Grid.Column="1" Content="CPU" />
+                            <CheckBox x:Name="ShowWslMemoryCheck" Grid.Row="1" Grid.Column="2" Content="メモリ" />
+                            <CheckBox x:Name="ShowWslStorageCheck" Grid.Row="1" Grid.Column="3" Content="ストレージ" />
+                        </Grid>
+                        <DockPanel Margin="0,6,0,0">
+                            <TextBlock Text="表示するドライブ" Style="{StaticResource Label}" />
+                            <TextBox x:Name="StorageDrivesBox" ToolTip="例: C:, D:" />
+                        </DockPanel>
+                        <TextBlock Style="{StaticResource Hint}"
+                                   Text="ドライブを空欄にすると NTFS / ReFS の固定ドライブをすべて表示します（Google ドライブなどの仮想ドライブは除外）。WSL2 は 30 秒ごとに VM 内の CPU 使用率・メモリ・ルートファイルシステム（/）を取得し、メモリは Windows 上で VM が使用している量も表示します。WSL が停止中のときは起動しません。" />
+                    </StackPanel>
                 </GroupBox>
             </StackPanel>
         </ScrollViewer>

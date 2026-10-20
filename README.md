@@ -30,6 +30,7 @@ Claude Code の `/usage` と同じ情報（Session (5hr)・Weekly (7 day)・モ�
 - **詳細表示**：ウィジェットをクリックすると、ローカルログから集計したトークン量を表示します（5時間ブロック、今日・今週・今月、モデル別、プロジェクト別の上位5件、`/usage` の利用傾向）。
 - **タスクトレイ常駐**：アイコンに Session (5hr) の使用率を数字で表示します。左クリックでウィジェットの表示・非表示を切り替えます。
 - **通知**：しきい値を超えたときに Windows の通知を出します（同じ周期では1回だけ）。リセット時の通知も設定できます。
+- **システム情報（オプション）**：設定で項目ごとに有効にすると、PC と WSL2 の CPU・メモリ・ストレージの使用状況も表示します。WSL2 のメモリは VM 内の使用量 / 上限に加えて、Windows 上で VM が使っている量も表示します。80% で黄、90% で赤になります。WSL が停止中のときは起動しません。
 - **Windows と WSL の両対応**：Windows に Claude Code が無い場合は WSL 側の Claude Code から取得します。ログは Windows・WSL の両方を合算して集計します。
 - **ウィジェットの操作**：ドラッグで移動、画面端に吸着、常に最前面・通常・最背面の切り替え、不透明度の調整、クリック透過、ライト・ダークテーマ。
 
@@ -42,15 +43,30 @@ Claude Code の `/usage` と同じ情報（Session (5hr)・Weekly (7 day)・モ�
 
 ## インストール
 
-1. [Releases](../../releases) から使用している PC 向けの zip をダウンロードします。
-   - 通常の PC：`ClaudeUsageMonitor-<バージョン>-win-x64.zip`
-   - ARM 版 Windows：`ClaudeUsageMonitor-<バージョン>-win-arm64.zip`
-2. 好きな場所に展開し、`ClaudeUsageMonitor.exe` を実行します（.NET ランタイムは同梱しているため、別途インストールは不要です）。
-3. 画面右下にウィジェットが表示され、タスクトレイにアイコンが出ます。
+[Releases](../../releases) から、インストーラー版かポータブル版（zip）をダウンロードします。どちらも .NET ランタイムを同梱しているため、別途インストールは不要です。
 
-コード署名をしていないため、初回起動時に「Windows によって PC が保護されました」と表示されることがあります。その場合は「詳細情報」→「実行」を選んでください。
+| 形式 | 通常の PC（x64） | ARM 版 Windows |
+|---|---|---|
+| インストーラー | `ClaudeUsageMonitor-<バージョン>-win-x64-setup.exe` | `ClaudeUsageMonitor-<バージョン>-win-arm64-setup.exe` |
+| ポータブル（zip） | `ClaudeUsageMonitor-<バージョン>-win-x64.zip` | `ClaudeUsageMonitor-<バージョン>-win-arm64.zip` |
 
-Windows の起動時に自動で起動したい場合は、設定画面で「Windows の起動時に自動起動する」をオンにしてください。
+### インストーラー版
+
+1. `...-setup.exe` を実行します。管理者権限は不要で、`%LOCALAPPDATA%\Programs\ClaudeUsageMonitor` にインストールされます。
+2. 途中で「デスクトップにアイコンを作成する」「Windows の起動時に自動起動する」を選べます。
+3. スタートメニューに「Claude Usage Monitor」が追加されます。
+
+新しいバージョンのインストーラーを実行すると、そのまま上書きで更新されます（起動中の場合は終了を促されます）。アンインストールは Windows の「設定」→「アプリ」から行えます。
+
+### ポータブル版
+
+zip を好きな場所に展開し、`ClaudeUsageMonitor.exe` を実行します。Windows の起動時に自動で起動したい場合は、設定画面で「Windows の起動時に自動起動する」をオンにしてください。
+
+### 共通
+
+起動すると画面右下にウィジェットが表示され、タスクトレイにアイコンが出ます。
+
+コード署名をしていないため、初回の実行時に「Windows によって PC が保護されました」と表示されることがあります。その場合は「詳細情報」→「実行」を選んでください。
 
 ## 使い方
 
@@ -103,7 +119,7 @@ Claude Code のセッションログ（`~/.claude/projects/**/*.jsonl`）を差�
 | 最後に取得した利用枠 | `%LOCALAPPDATA%\ClaudeUsageMonitor\ratelimit.json` |
 | アプリのログ（7日で削除） | `%LOCALAPPDATA%\ClaudeUsageMonitor\logs\` |
 
-アンインストールするには、アプリを終了して exe を削除し、必要に応じて上のフォルダを削除してください。自動起動をオンにしていた場合は、削除する前に設定画面でオフにしてください。
+アンインストールしても、上の設定・データは残ります。不要な場合は手動で削除してください。ポータブル版で自動起動をオンにしていた場合は、exe を削除する前に設定画面でオフにしてください。
 
 ## 開発
 
@@ -136,13 +152,23 @@ dotnet publish src/ClaudeUsageMonitor/ClaudeUsageMonitor.csproj -c Release -r wi
 
 .NET ランタイムを同梱した単一の exe が出力されます。
 
+インストーラーは [Inno Setup 6](https://jrsoftware.org/isinfo.php) で作成します（定義は `installer/ClaudeUsageMonitor.iss`）。上の publish のあとに実行すると、`dist/` に出力されます。
+
+```powershell
+& "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" /DAppVersion=0.2.0 /DArch=x64 installer\ClaudeUsageMonitor.iss
+```
+
+アプリのアイコン（`src/ClaudeUsageMonitor/Assets/app.ico`）は `tools/make-icon.ps1` で生成しています。
+
 ### 構成
 
 ```
-src/ClaudeUsageMonitor.Core   CLI の実行と解析、WSL 連携、ログ集計（SQLite）、設定
-src/ClaudeUsageMonitor        WPF のウィジェット、トレイアイコン、通知、設定画面
+src/ClaudeUsageMonitor.Core     CLI の実行と解析、WSL 連携、ログ集計（SQLite）、メモリ取得、設定
+src/ClaudeUsageMonitor          WPF のウィジェット、トレイアイコン、通知、設定画面
 tests/ClaudeUsageMonitor.Tests  単体テストと結合テスト（xUnit）
-docs/specification.md         仕様書
+installer/                      インストーラー定義（Inno Setup）
+tools/                          アイコン生成スクリプト
+docs/specification.md           仕様書
 ```
 
 ## リリース
@@ -156,7 +182,8 @@ git tag v0.2.0
 git push origin v0.2.0
 ```
 
-- x64 と ARM64 の zip、および `SHA256SUMS.txt` が Release に添付されます。
+- x64 と ARM64 それぞれのインストーラー（`-setup.exe`）と zip、および `SHA256SUMS.txt` が Release に添付されます。
+- Actions の画面から Release ワークフローを手動で実行すると、Release を作らずに成果物だけを作れます（Artifacts からダウンロード）。
 - リリースノートは前回のタグからの変更内容で自動生成されます。
 - `v0.2.0-beta.1` のように `-` を含むタグはプレリリースになります。
 - アプリのバージョンはタグから設定されます。

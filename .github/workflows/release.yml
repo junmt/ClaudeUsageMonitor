@@ -1,9 +1,11 @@
 name: Release
 
-# v で始まるタグ（例: v0.1.0）を push すると、テスト → ビルド → GitHub Release の作成までを自動で行う
+# v で始まるタグ（例: v0.1.0）を push すると、テスト → ビルド → GitHub Release の作成までを自動で行う。
+# Actions の画面から手動で実行（workflow_dispatch）した場合は、Release を作らずに成果物だけを作る（試しビルド用）。
 on:
   push:
     tags: ['v*']
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -22,12 +24,17 @@ jobs:
         id: version
         shell: pwsh
         run: |
-          $tag = "${{ github.ref_name }}"
-          $version = $tag.TrimStart('v')
-          if ($version -notmatch '^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$') {
-            throw "タグ '$tag' は vX.Y.Z（例: v0.1.0）の形式にしてください。"
+          if ('${{ github.event_name }}' -eq 'workflow_dispatch') {
+            $version = "0.0.0-dev.${{ github.run_number }}"
+          } else {
+            $tag = "${{ github.ref_name }}"
+            $version = $tag.TrimStart('v')
+            if ($version -notmatch '^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$') {
+              throw "タグ '$tag' は vX.Y.Z（例: v0.1.0）の形式にしてください。"
+            }
           }
           "version=$version" >> $env:GITHUB_OUTPUT
+          "numeric=$($version.Split('-')[0])" >> $env:GITHUB_OUTPUT
           "prerelease=$($version.Contains('-').ToString().ToLower())" >> $env:GITHUB_OUTPUT
 
       - name: Test
@@ -44,11 +51,37 @@ jobs:
             if ($LASTEXITCODE -ne 0) { throw "publish に失敗しました ($rid)" }
             Compress-Archive -Path "publish/$rid/*" -DestinationPath "dist/ClaudeUsageMonitor-$version-$rid.zip"
           }
-          Get-ChildItem dist | ForEach-Object {
+
+      - name: Build installers
+        shell: pwsh
+        run: |
+          $iscc = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
+          if (-not (Test-Path $iscc)) {
+            choco install innosetup --no-progress -y
+            if ($LASTEXITCODE -ne 0) { throw "Inno Setup のインストールに失敗しました" }
+          }
+          foreach ($arch in 'x64', 'arm64') {
+            & $iscc "/DAppVersion=${{ steps.version.outputs.version }}" "/DNumericVersion=${{ steps.version.outputs.numeric }}" "/DArch=$arch" installer/ClaudeUsageMonitor.iss
+            if ($LASTEXITCODE -ne 0) { throw "インストーラーの作成に失敗しました ($arch)" }
+          }
+
+      - name: Checksums
+        shell: pwsh
+        run: |
+          Get-ChildItem dist -Exclude SHA256SUMS.txt | ForEach-Object {
             "$((Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower())  $($_.Name)"
           } | Set-Content dist/SHA256SUMS.txt -Encoding ascii
+          Get-Content dist/SHA256SUMS.txt
+
+      - name: Upload artifacts (manual run)
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v7
+        with:
+          name: ClaudeUsageMonitor-${{ steps.version.outputs.version }}
+          path: dist/*
 
       - name: Create GitHub Release
+        if: github.event_name == 'push'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}

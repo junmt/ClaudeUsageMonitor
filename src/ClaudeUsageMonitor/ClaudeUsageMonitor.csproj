@@ -8,6 +8,7 @@
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\app.ico</ApplicationIcon>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <!-- DPI 設定は WPF のためマニフェストで行う（WinForms はトレイアイコンにのみ使用） -->
     <NoWarn>$(NoWarn);WFO0003</NoWarn>
@@ -25,6 +26,10 @@
 
   <ItemGroup>
     <ProjectReference Include="..\ClaudeUsageMonitor.Core\ClaudeUsageMonitor.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets\app.ico" />
   </ItemGroup>
 
   <ItemGroup>

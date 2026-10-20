@@ -9,6 +9,19 @@ public static class StartupRegistration
     private const string RunKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
     private const string ValueName = "ClaudeUsageMonitor";
 
+    public static bool IsEnabled()
+    {
+        try
+        {
+            using var key = Registry.CurrentUser.OpenSubKey(RunKey);
+            return key?.GetValue(ValueName) is string { Length: > 0 };
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     public static void Apply(bool enabled)
     {
         try

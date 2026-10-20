@@ -50,6 +50,21 @@ public sealed class AppSettings
     public int WarningThreshold { get; set; } = 70;
     public int CriticalThreshold { get; set; } = 90;
     public bool ShowEmail { get; set; } = true;
+
+    // システム情報（オプション）
+    public bool ShowPcCpu { get; set; }
+    public bool ShowPcMemory { get; set; }
+    public bool ShowPcStorage { get; set; }
+
+    /// <summary>表示するドライブ（例: "C:, D:"）。空なら NTFS / ReFS の固定ドライブすべて。</summary>
+    public string? StorageDrives { get; set; }
+
+    public bool ShowWslCpu { get; set; }
+    public bool ShowWslMemory { get; set; }
+    public bool ShowWslStorage { get; set; }
+
+    public bool AnyPcSystemInfo => ShowPcCpu || ShowPcMemory || ShowPcStorage;
+    public bool AnyWslSystemInfo => ShowWslCpu || ShowWslMemory || ShowWslStorage;
     public ColorTheme Theme { get; set; } = ColorTheme.System;
     public int OpacityPercent { get; set; } = 90;
     public TopmostMode Topmost { get; set; } = TopmostMode.AlwaysOnTop;

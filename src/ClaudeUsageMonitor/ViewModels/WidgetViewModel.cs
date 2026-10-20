@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using ClaudeUsageMonitor.Core.Models;
 using ClaudeUsageMonitor.Core.Settings;
+using ClaudeUsageMonitor.Core.SystemInfo;
 using ClaudeUsageMonitor.Services;
 
 namespace ClaudeUsageMonitor.ViewModels;
@@ -30,7 +31,18 @@ public sealed class WidgetViewModel : ObservableObject
     private string _todayBreakdown = "";
     private string? _insights;
 
+    // CPU・メモリ・ストレージは常時ある程度使われるため、利用枠とは別のしきい値で色分けする
+    private const double SystemWarningPercent = 80;
+    private const double SystemCriticalPercent = 90;
+
+    private bool _hasSystemItems;
+
     public ObservableCollection<LimitItemViewModel> Limits { get; } = [];
+
+    /// <summary>PC・WSL2 の CPU・メモリ・ストレージ（設定で有効にした場合のみ）。</summary>
+    public ObservableCollection<LimitItemViewModel> SystemItems { get; } = [];
+
+    public bool HasSystemItems { get => _hasSystemItems; private set => SetProperty(ref _hasSystemItems, value); }
     public ObservableCollection<BarItemViewModel> Models { get; } = [];
     public ObservableCollection<BarItemViewModel> Projects { get; } = [];
 
@@ -92,7 +104,104 @@ public sealed class WidgetViewModel : ObservableObject
                 : $"更新 {snapshot.FetchedAt.ToLocalTime():HH:mm}";
 
         UpdateStats(controller.Stats, now);
+        UpdateSystem(controller, settings);
     }
+
+    private void UpdateSystem(MonitorController controller, AppSettings settings)
+    {
+        var items = new List<LimitItemViewModel>();
+        AddPcItems(items, controller.PcSystem, settings);
+        AddWslItems(items, controller.WslSystem, settings);
+        Replace(SystemItems, items);
+        HasSystemItems = items.Count > 0;
+    }
+
+    private static void AddPcItems(List<LimitItemViewModel> items, PcSystemUsage? pc, AppSettings settings)
+    {
+        if (settings.ShowPcCpu)
+        {
+            items.Add(pc?.CpuPercent is { } cpu
+                ? Item("PC CPU", cpu, $"{pc.ProcessorCount} 論理プロセッサ", null)
+                : Pending("PC CPU", "取得中…"));
+        }
+
+        if (settings.ShowPcMemory)
+        {
+            items.Add(pc?.Memory is { } memory
+                ? Item("PC メモリ", memory.Percent, Capacity(memory), null)
+                : Pending("PC メモリ", "取得中…"));
+        }
+
+        if (settings.ShowPcStorage)
+        {
+            if (pc is null)
+                items.Add(Pending("PC ストレージ", "取得中…"));
+            else if (pc.Drives.Count == 0)
+                items.Add(Pending("PC ストレージ", "対象のドライブがありません"));
+            foreach (var drive in pc?.Drives ?? [])
+            {
+                var label = drive.Label is null ? $"PC ストレージ {drive.Name}" : $"PC ストレージ {drive.Name}（{drive.Label}）";
+                items.Add(Item(label, drive.Usage.Percent, Capacity(drive.Usage),
+                    $"空き {Format.Bytes(drive.Usage.TotalBytes - drive.Usage.UsedBytes)}"));
+            }
+        }
+    }
+
+    private static void AddWslItems(List<LimitItemViewModel> items, WslSystemUsage? wsl, AppSettings settings)
+    {
+        if (!settings.AnyWslSystemInfo)
+            return;
+
+        var host = wsl?.HostMemoryBytes is { } h ? $"Windows 上で WSL2 の VM が使用中のメモリ: {Format.Bytes(h)}" : null;
+        var source = wsl?.Distro is { } d ? $"{d} で取得（VM はすべてのディストリビューションで共通）" : null;
+
+        void Add(string label, Func<WslSystemUsage, LimitItemViewModel?> build)
+        {
+            if (wsl is null)
+                items.Add(Pending(label, "取得中…"));
+            else if (!wsl.Running)
+                items.Add(Pending(label, "WSL は停止中", host));
+            else
+                items.Add(build(wsl) ?? Pending(label, "取得できませんでした"));
+        }
+
+        if (settings.ShowWslCpu)
+        {
+            Add("WSL2 CPU", w => w.CpuPercent is { } cpu
+                ? Item("WSL2 CPU", cpu, w.ProcessorCount is { } n ? $"{n} プロセッサ（VM に割り当て）" : "", source)
+                : w.ProcessorCount is not null ? Pending("WSL2 CPU", "計測中…（次回の取得で表示）") : null);
+        }
+
+        if (settings.ShowWslMemory)
+        {
+            Add("WSL2 メモリ", w => w.Memory is { } memory
+                ? Item("WSL2 メモリ", memory.Percent,
+                    Capacity(memory) + (w.HostMemoryBytes is { } hb ? $"（Windows 上 {Format.Bytes(hb)}）" : ""),
+                    string.Join(Environment.NewLine, new[] { "VM 内の使用量 / 上限", host, source }.Where(s => s is not null)))
+                : null);
+        }
+
+        if (settings.ShowWslStorage)
+        {
+            Add("WSL2 ストレージ", w => w.Disk is { } disk
+                ? Item("WSL2 ストレージ", disk.Percent, Capacity(disk),
+                    string.Join(Environment.NewLine, new[] { "ルートファイルシステム（/）の使用量 / 容量", source }.Where(s => s is not null)))
+                : null);
+        }
+    }
+
+    private static string Capacity(CapacityUsage usage) => $"{Format.Bytes(usage.UsedBytes)} / {Format.Bytes(usage.TotalBytes)}";
+
+    private static LimitItemViewModel Item(string label, double percent, string detail, string? tooltip)
+    {
+        var level = percent >= SystemCriticalPercent ? UsageLevel.Critical
+            : percent >= SystemWarningPercent ? UsageLevel.Warning
+            : UsageLevel.Normal;
+        return new LimitItemViewModel(label, Math.Clamp(percent, 0, 100), Format.Percent(Math.Round(percent)), detail, tooltip, level);
+    }
+
+    private static LimitItemViewModel Pending(string label, string detail, string? tooltip = null) =>
+        new(label, 0, "—", detail, tooltip, UsageLevel.Stale);
 
     private void UpdateAccount(AccountInfo? account, AppSettings settings)
     {

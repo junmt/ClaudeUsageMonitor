@@ -23,7 +23,8 @@ public partial class SettingsWindow : Window
 
     private void Load(AppSettings s, ClaudeEndpoint? lastEndpoint)
     {
-        AutoStartCheck.IsChecked = s.AutoStart;
+        // インストーラーで自動起動を設定した場合もあるため、実際の登録状態を表示する
+        AutoStartCheck.IsChecked = s.AutoStart || ClaudeUsageMonitor.Services.StartupRegistration.IsEnabled();
         NotificationsCheck.IsChecked = s.NotificationsEnabled;
         NotifyResetCheck.IsChecked = s.NotifyOnReset;
 
@@ -59,6 +60,13 @@ public partial class SettingsWindow : Window
         SelectByTag(TopmostCombo, s.Topmost.ToString());
         OpacitySlider.Value = s.OpacityPercent;
         ShowEmailCheck.IsChecked = s.ShowEmail;
+        ShowPcCpuCheck.IsChecked = s.ShowPcCpu;
+        ShowPcMemoryCheck.IsChecked = s.ShowPcMemory;
+        ShowPcStorageCheck.IsChecked = s.ShowPcStorage;
+        StorageDrivesBox.Text = s.StorageDrives ?? "";
+        ShowWslCpuCheck.IsChecked = s.ShowWslCpu;
+        ShowWslMemoryCheck.IsChecked = s.ShowWslMemory;
+        ShowWslStorageCheck.IsChecked = s.ShowWslStorage;
     }
 
     private void OnSaveClick(object sender, RoutedEventArgs e)
@@ -97,6 +105,13 @@ public partial class SettingsWindow : Window
             Topmost = Enum.Parse<TopmostMode>(SelectedTag(TopmostCombo)),
             OpacityPercent = (int)OpacitySlider.Value,
             ShowEmail = ShowEmailCheck.IsChecked == true,
+            ShowPcCpu = ShowPcCpuCheck.IsChecked == true,
+            ShowPcMemory = ShowPcMemoryCheck.IsChecked == true,
+            ShowPcStorage = ShowPcStorageCheck.IsChecked == true,
+            StorageDrives = string.IsNullOrWhiteSpace(StorageDrivesBox.Text) ? null : StorageDrivesBox.Text.Trim(),
+            ShowWslCpu = ShowWslCpuCheck.IsChecked == true,
+            ShowWslMemory = ShowWslMemoryCheck.IsChecked == true,
+            ShowWslStorage = ShowWslStorageCheck.IsChecked == true,
 
             // ウィジェットの状態は設定画面では変更しない
             ClickThrough = _original.ClickThrough,

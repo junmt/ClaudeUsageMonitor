@@ -55,6 +55,7 @@ Claude サブスクリプション（Pro / Max / Team 等）の利用状況（�
 | F-09 | CSV エクスポート | 低 | 3 |
 | F-10 | プラン利用枠（Session 5hr / Weekly 7day / モデル別上限 の使用率%とリセット時刻）の表示 | **必須（主機能）** | 1 |
 | F-11 | アカウント情報（メールアドレス・プラン）の表示 | 中 | 1 |
+| F-12 | システム情報（PC・WSL2 の CPU・メモリ・ストレージ）の表示（オプション） | 中 | 2 |
 
 ### 3.2 F-01 ローカルログの収集・集計
 
@@ -287,6 +288,23 @@ Windows に Claude Code がインストールされているとは限らない�
 - どちらから取得しても同じ値が返るため、取得元は表示・記録しない（内部的には最後に成功した取得元を次回最初に試すだけとする）。
 - アカウント情報（`auth status`）も同じ取得元から取得する（WSL の場合は `bash -lc 'claude auth status'`）。
 
+### 3.12 F-12 システム情報の表示（オプション）
+
+設定で項目ごとに有効にした場合のみ、ウィジェットの「SYSTEM」欄に表示する（既定はすべて無効）。
+
+| 対象 | 項目 | 取得方法 | 間隔 |
+|---|---|---|---|
+| PC | CPU | `GetSystemTimes` の前回取得からの差分 | 5秒 |
+| PC | メモリ | `GlobalMemoryStatusEx`（物理メモリの使用量 / 総量） | 5秒 |
+| PC | ストレージ | `DriveInfo`。表示するドライブを設定で指定（例 `C:, D:`）。空欄なら NTFS / ReFS の固定ドライブすべて（Google ドライブ等の仮想ドライブは FAT32 等として見えるため除外） | 5秒 |
+| WSL2 | CPU | `/proc/stat` の前回取得からの差分（VM 内） | 30秒 |
+| WSL2 | メモリ | `/proc/meminfo` の MemTotal − MemAvailable（VM 内の使用量 / 上限）。補足として Windows 上の `vmmemWSL` プロセスのワーキングセット | 30秒 |
+| WSL2 | ストレージ | `df -B1 -P /`（ルートファイルシステムの使用量 / 容量） | 30秒 |
+
+- WSL2 は全ディストリビューションで1つの VM を共有するため、実行中のディストリビューション（既定を優先）1つで、1回の `wsl.exe -d <distro> --exec sh -c '...'` によりまとめて取得する。
+- 停止中の WSL は起動しない（「WSL は停止中」と表示）。
+- 色分けは利用枠とは別の固定しきい値（80% で警告、90% で危険）とする。
+
 ---
 
 ## 4. 非機能要件
@@ -318,7 +336,10 @@ Windows に Claude Code がインストールされているとは限らない�
 - 高DPI（100〜200%）・マルチモニター・異なる DPI のモニター間移動に対応。
 
 ### 4.5 配布・更新
-- 個人利用のみ（ソースは GitHub の公開リポジトリで管理）。配布形式はポータブル版（self-contained 単一ファイル exe を zip 化、§6.1）とし、インストーラー・コード署名・自動更新は行わない。
+- 個人利用のみ（ソースは GitHub の公開リポジトリで管理）。コード署名・自動更新は行わない。
+- 配布形式は次の2種類（いずれも .NET ランタイム同梱の self-contained 単一ファイル exe、x64 / ARM64、§6.1）：
+  - インストーラー（Inno Setup 6、`installer/ClaudeUsageMonitor.iss`）：ユーザーごとのインストール（`%LOCALAPPDATA%\Programs\ClaudeUsageMonitor`、管理者権限不要）。スタートメニューのショートカット、任意でデスクトップのショートカットと自動起動。上書きインストールで更新でき、起動中のアプリは単一起動用ミューテックスで検出して終了を促す。アンインストール時は、このインストール先を指す自動起動の登録も削除する（設定・集計 DB は残す）。
+  - ポータブル版（zip）
 - 管理者権限不要で動作すること。
 - 自動起動はスタートアップ用レジストリ（`HKCU\Software\Microsoft\Windows\CurrentVersion\Run`）への登録で実現する。
 
@@ -437,7 +458,8 @@ CREATE INDEX idx_usage_ts ON usage_records(timestamp_utc);
 | 契機 | 処理 | 定義 |
 |---|---|---|
 | `main` への push、Pull Request | ビルドと単体テスト | `.github/workflows/ci.yml` |
-| `vX.Y.Z` 形式のタグの push | 単体テスト → win-x64 / win-arm64 の単一 exe を発行 → zip と `SHA256SUMS.txt` を添付して GitHub Release を作成（リリースノートは自動生成） | `.github/workflows/release.yml` |
+| `vX.Y.Z` 形式のタグの push | 単体テスト → win-x64 / win-arm64 の単一 exe を発行 → インストーラー（`-setup.exe`）と zip、`SHA256SUMS.txt` を添付して GitHub Release を作成（リリースノートは自動生成） | `.github/workflows/release.yml` |
+| Release ワークフローの手動実行 | 上と同じビルドを行い、Release は作らずに成果物を Artifacts として保存（試しビルド用、バージョンは `0.0.0-dev.<実行番号>`） | 同上 |
 
 - アプリのバージョンはタグから設定する（`-p:Version=X.Y.Z`）。
 - `-` を含むタグ（例：`v0.2.0-beta.1`）はプレリリースとする。
